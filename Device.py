@@ -28,10 +28,14 @@ class Device(threading.Thread):
 
         self.currentExecution = Execution.IDLE
 
-        self.objectCallback = None
-        self.callback = None
+        self.guiCallback = None
+        self.networkCallback = None
 
         self.start()
+
+    def __del__(self):
+        if self.networkCallback:
+            self.networkCallback.__del__()
 
     def getName(self):
         return self.DeviceName
@@ -95,22 +99,22 @@ class Device(threading.Thread):
         return self.state
 
     def registerCallback(self, p_object):
-        self.objectCallback = p_object
+        self.guiCallback = p_object
 
     def execCallback(self):
-        self.objectCallback.updateValue(str(self.getState()) + " " + self.getTextState(), self.getTextMode())
+        self.guiCallback.updateValue(str(self.getState()) + " " + self.getTextState(), self.getTextMode())
 
     def isCallback(self):
-        if self.objectCallback != None:
+        if self.guiCallback != None:
             return True
         else:
             return False
 
     def registerModeChange(self, p_object):
-        self.modeChangeObjCallback = p_object
+        self.networkCallback = p_object
 
     def execModeChange(self, value):
-        self.modeChangeObjCallback.modeChange(value)
+        self.networkCallback.modeChange(value)
 
     def stopProcess(self):
         self.inProgress = False

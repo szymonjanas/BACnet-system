@@ -31,13 +31,16 @@ class Network(threading.Thread):
 
         self.start()
 
+    def __del__(self):
+        self.bacnet.disconnect()
+
     def create(self):
         self.bacnet.this_application.add_object(
-            CreateObj.create_MV(oid=1, pv=1, name='get_mode#{}'.format(1), states=['manual', 'auto_basic', 'auto_extended'], pv_writable=False))
+            CreateObj.create_MV(oid=1, pv=1, name='get_mode#{}'.format(1), states=['manual', 'auto_basic', 'auto_extended'], pv_writable=True))
         self.bacnet.this_application.add_object(
             CreateObj.create_MV(oid=2, pv=1, name='set_mode#{}'.format(2), states=['manual', 'auto_basic', 'auto_extended'], pv_writable=True))
         self.bacnet.this_application.add_object(
-            CreateObj.create_MV(oid=3, pv=1, name='get_state#{}'.format(3), states=['idle', 'open', 'close', 'half-open'], pv_writable=False))
+            CreateObj.create_MV(oid=3, pv=1, name='get_state#{}'.format(3), states=['idle', 'open', 'close', 'half-open'], pv_writable=True))
         self.bacnet.this_application.add_object(
             CreateObj.create_MV(oid=4, pv=1, name='set_state#{}'.format(4), states=['idle', 'open', 'close'], pv_writable=True))
 
@@ -79,6 +82,7 @@ class Network(threading.Thread):
             
             if mode == 3:
                 reqState = self.set_state.ReadProperty('presentValue')
+                self.set_state.WriteProperty('presentValue', 1)
                 reqStatesText = self.set_state.ReadProperty('stateText')
                 if reqState != 1:
                     if reqStatesText[reqState] != self.device.getTextState():
@@ -86,6 +90,17 @@ class Network(threading.Thread):
                             self.autoExtOpen()
                         if reqState == 3 and self.device.getExecution() != Device.Execution.CLOSING:
                             self.autoExtClose()
+
+            if mode == 2:
+                duskSensor = self.bacnet.whohas(object_name='get_dusk#1')
+                duskValue = self.bacnet.read('{} 19 1 presentValue'.format(duskSensor[0][0]))
+                duskValuesText = self.bacnet.read('{} 19 1 stateText'.format(duskSensor[0][0]))
+                if duskValuesText[duskValue-1] == 'day':
+                    if self.device.getTextState() != "open" and self.device.getExecution() != Device.Execution.OPENING:    
+                        self.autoExtOpen()
+                if duskValuesText[duskValue-1] == 'night':
+                    if self.device.getTextState() != "close" and self.device.getExecution() != Device.Execution.CLOSING:    
+                        self.autoExtClose()
 
             self.syncStates()
             time.sleep(0.1)

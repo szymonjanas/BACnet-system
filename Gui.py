@@ -20,7 +20,7 @@ class DeviceWindow(QDialog, DeviceForm):
         self.btn_close.clicked.connect(self.btnClose)
         self.btn_open.clicked.connect(self.btnOpen)
         self.btn_up.clicked.connect(self.btnUp)
-        self.btn_down.clicked.connect(self.btnDown)
+        self.btn_down.clicked.connect(self.btnDown)      
 
     def updateValue(self, value, mode):
         self.label_state.setText(str(value))
@@ -51,10 +51,15 @@ class DeviceApp:
     def create(self, p_device):
         self.windowsContinter.append(DeviceWindow(p_device))
 
+    def add(self, window):
+        self.windowsContinter.append(window)
+
     def display(self):
         for dev in self.windowsContinter:
             dev.show()
         self.app.exec()
 
     def myExitHandler(self):
+        for dev in self.windowsContinter:
+            dev.device.__del__()
         os._exit(1)
