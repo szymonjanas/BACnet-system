@@ -4,6 +4,11 @@ import time
 
 __logger__ = logging.getLogger(__name__)
 
+class Mode:
+    MANUAL = 1
+    AUTO_BASIC = 2
+    AUTO_EXTENDED = 3
+
 class Device(threading.Thread):
     def __init__(self, p_deviceName):
         threading.Thread.__init__(self)
@@ -13,7 +18,7 @@ class Device(threading.Thread):
         self.iter = 1
         self.execQ = list()
         self.inProgress = True
-
+        self.mode = Mode.MANUAL
         self.DeviceName = p_deviceName
 
         self.objectCallback = None
@@ -34,6 +39,17 @@ class Device(threading.Thread):
         else:
             __logger__.error("State value should be in range 0 -100, not: " + str(self.getState()))
             return "idle"
+    
+    def getTextMode(self):
+        if self.mode == Mode.MANUAL:
+            return 'manual'
+        elif self.mode == Mode.AUTO_BASIC:
+            return 'auto_basic'
+        elif self.mode == Mode.AUTO_EXTENDED:
+            return 'auto_extended'
+
+    def setMode(self, value):
+        self.mode = value
 
     def setState(self, value : int):
         if isinstance(value, int):
@@ -74,14 +90,20 @@ class Device(threading.Thread):
     def registerCallback(self, p_object):
         self.objectCallback = p_object
 
-    def execCallback(self, value):
-        self.objectCallback.updateValue(str(value) + " " + self.getTextState())
+    def execCallback(self):
+        self.objectCallback.updateValue(str(self.getState()) + " " + self.getTextState(), self.getTextMode())
 
     def isCallback(self):
         if self.objectCallback != None:
             return True
         else:
             return False
+
+    def registerModeChange(self, p_object):
+        self.modeChangeObjCallback = p_object
+
+    def execModeChange(self, value):
+        self.modeChangeObjCallback.modeChange(value)
 
     def stopProcess(self):
         self.inProgress = False
@@ -102,10 +124,23 @@ class Device(threading.Thread):
         self.stopProcess()
         self.execQ.append([self._increaseState, 100])
 
+    def manual(self):
+        self.mode = Mode.MANUAL
+        self.execModeChange(self.mode)
+
+    def auto_basic(self):
+        self.mode = Mode.AUTO_BASIC
+
+    def auto_extended(self):
+        self.mode = Mode.AUTO_EXTENDED
+    
+    def getMode(self):
+        return self.mode
+
     def run(self):
         while self.status:
             if self.isCallback():
-                self.execCallback(self.getState())
+                self.execCallback()
             time.sleep(0.1)
             if len(self.execQ) > 0:
                 temp = self.execQ.pop(0)
@@ -114,12 +149,12 @@ class Device(threading.Thread):
                     if temp[1] == 100:
                         while self.getState() < 100 and self.inProgress:
                             temp[0](self.iter)
-                            self.execCallback(self.getState())
+                            self.execCallback()
                             time.sleep(0.1)
                     elif temp[1] == 0:
                         while self.getState() > 0 and self.inProgress:
                             temp[0](self.iter)
-                            self.execCallback(self.getState())
+                            self.execCallback()
                             time.sleep(0.1)
                 else:
                     temp[0](self.iter)

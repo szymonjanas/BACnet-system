@@ -22,19 +22,24 @@ class DeviceWindow(QDialog, DeviceForm):
         self.btn_up.clicked.connect(self.btnUp)
         self.btn_down.clicked.connect(self.btnDown)
 
-    def updateValue(self, value):
+    def updateValue(self, value, mode):
         self.label_state.setText(str(value))
+        self.label_name.setText(str(mode))
 
     def btnOpen(self):
+        self.device.manual()
         self.device.autoUp()
 
     def btnClose(self):
+        self.device.manual()
         self.device.autoDown()
 
     def btnUp(self):
+        self.device.manual()
         self.device.manualUp()
 
     def btnDown(self):
+        self.device.manual()
         self.device.manualDown()
 
 class DeviceApp:
