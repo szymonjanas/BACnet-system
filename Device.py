@@ -9,6 +9,11 @@ class Mode:
     AUTO_BASIC = 2
     AUTO_EXTENDED = 3
 
+class Execution:
+    IDLE = 0
+    OPENING = 1
+    CLOSING = 2
+
 class Device(threading.Thread):
     def __init__(self, p_deviceName):
         threading.Thread.__init__(self)
@@ -20,6 +25,8 @@ class Device(threading.Thread):
         self.inProgress = True
         self.mode = Mode.MANUAL
         self.DeviceName = p_deviceName
+
+        self.currentExecution = Execution.IDLE
 
         self.objectCallback = None
         self.callback = None
@@ -39,7 +46,7 @@ class Device(threading.Thread):
         else:
             __logger__.error("State value should be in range 0 -100, not: " + str(self.getState()))
             return "idle"
-    
+
     def getTextMode(self):
         if self.mode == Mode.MANUAL:
             return 'manual'
@@ -51,7 +58,7 @@ class Device(threading.Thread):
     def setMode(self, value):
         self.mode = value
 
-    def setState(self, value : int):
+    def _setState(self, value : int):
         if isinstance(value, int):
             if value <= 100 and value >= 0:
                 self.state = value
@@ -64,9 +71,9 @@ class Device(threading.Thread):
         if isinstance(value, int):
             if value > 0:
                 if value + self.getState() <= 100:
-                    self.setState(value + self.getState())
+                    self._setState(value + self.getState())
                 else:
-                    self.setState(100)
+                    self._setState(100)
             else:
                 __logger__.error("Value type should be > 0, not: " + str(value))    
         else:
@@ -76,9 +83,9 @@ class Device(threading.Thread):
         if isinstance(value, int):
             if value > 0:
                 if self.getState() - value >= 0:
-                    self.setState(self.getState() - value)
+                    self._setState(self.getState() - value)
                 else:
-                    self.setState(0)
+                    self._setState(0)
             else:
                 __logger__.error("Value type should be > 0, not: " + str(value))    
         else:
@@ -137,6 +144,12 @@ class Device(threading.Thread):
     def getMode(self):
         return self.mode
 
+    def getExecution(self):
+        return self.currentExecution
+
+    def setExecution(self, execution):
+        self.currentExecution = execution
+
     def run(self):
         while self.status:
             if self.isCallback():
@@ -148,14 +161,17 @@ class Device(threading.Thread):
                     self.inProgress = True
                     if temp[1] == 100:
                         while self.getState() < 100 and self.inProgress:
+                            self.setExecution(Execution.CLOSING)
                             temp[0](self.iter)
                             self.execCallback()
                             time.sleep(0.1)
                     elif temp[1] == 0:
                         while self.getState() > 0 and self.inProgress:
+                            self.setExecution(Execution.OPENING)
                             temp[0](self.iter)
                             self.execCallback()
                             time.sleep(0.1)
                 else:
                     temp[0](self.iter)
+            self.setExecution(Execution.IDLE)
             time.sleep(0.1)

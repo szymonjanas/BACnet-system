@@ -25,6 +25,8 @@ class Network(threading.Thread):
         self.get_state = self.bacnet.this_application.get_object_name('get_state#3')
         self.set_state = self.bacnet.this_application.get_object_name('set_state#4')
 
+        self.syncStates()
+
         self.device.registerModeChange(self)
 
         self.start()
@@ -37,8 +39,17 @@ class Network(threading.Thread):
         self.bacnet.this_application.add_object(
             CreateObj.create_MV(oid=3, pv=1, name='get_state#{}'.format(3), states=['idle', 'open', 'close', 'half-open'], pv_writable=False))
         self.bacnet.this_application.add_object(
-            CreateObj.create_MV(oid=4, pv=1, name='set_state#{}'.format(4), states=['idle', 'open', 'close', 'half-open'], pv_writable=True))
+            CreateObj.create_MV(oid=4, pv=1, name='set_state#{}'.format(4), states=['idle', 'open', 'close'], pv_writable=True))
 
+    def syncStates(self):
+        stateText = self.device.getTextState()
+        if stateText == 'open':
+            self.get_state.WriteProperty('presentValue', 2)
+        elif stateText == 'close':
+            self.get_state.WriteProperty('presentValue', 3)
+        elif stateText == 'half-open':
+            self.get_state.WriteProperty('presentValue', 4)
+       
     def modeChange(self, value):
         self.device.setMode(value)
         self.get_mode.WriteProperty('presentValue', value)
@@ -62,7 +73,19 @@ class Network(threading.Thread):
 
     def run(self):
         while self.status:
-            value = self.set_mode.ReadProperty('presentValue')
-            if value != self.device.getMode():
-                self.modeChange(value)
+            mode = self.set_mode.ReadProperty('presentValue')
+            if mode != self.device.getMode():
+                self.modeChange(mode)
+            
+            if mode == 3:
+                reqState = self.set_state.ReadProperty('presentValue')
+                reqStatesText = self.set_state.ReadProperty('stateText')
+                if reqState != 1:
+                    if reqStatesText[reqState] != self.device.getTextState():
+                        if reqState == 2 and self.device.getExecution() != Device.Execution.OPENING:
+                            self.autoExtOpen()
+                        if reqState == 3 and self.device.getExecution() != Device.Execution.CLOSING:
+                            self.autoExtClose()
+
+            self.syncStates()
             time.sleep(0.1)
