@@ -1,3 +1,4 @@
+from Device import Mode
 import threading
 import time
 import BAC0
@@ -28,6 +29,8 @@ class Network(threading.Thread):
         self.syncStates()
 
         self.device.registerModeChange(self)
+        self.modePrevious = self.device.getMode()
+        self.initializationDusk = True
 
         self.start()
 
@@ -74,12 +77,23 @@ class Network(threading.Thread):
         self.device.auto_basic()
         self.device.autoDown()     
 
+    def initDusk(self):
+        if self.initializationDusk:
+            self.duskSensor = self.bacnet.whohas(object_name='get_dusk#1')
+            self.duskValuesText = self.bacnet.read('{} 19 1 stateText'.format(self.duskSensor[0][0]))
+            self.initializationDusk = False
+
     def run(self):
         while self.status:
             mode = self.set_mode.ReadProperty('presentValue')
-            if mode != self.device.getMode():
+
+            if mode != self.modePrevious:
+                self.modePrevious = mode
                 self.modeChange(mode)
-            
+
+                if mode == 1:
+                    self.device.stopProcess()
+
             if mode == 3:
                 reqState = self.set_state.ReadProperty('presentValue')
                 self.set_state.WriteProperty('presentValue', 1)
@@ -92,15 +106,14 @@ class Network(threading.Thread):
                             self.autoExtClose()
 
             if mode == 2:
-                duskSensor = self.bacnet.whohas(object_name='get_dusk#1')
-                duskValue = self.bacnet.read('{} 19 1 presentValue'.format(duskSensor[0][0]))
-                duskValuesText = self.bacnet.read('{} 19 1 stateText'.format(duskSensor[0][0]))
-                if duskValuesText[duskValue-1] == 'day':
+                self.initDusk()
+                duskValue = self.bacnet.read('{} 19 1 presentValue'.format(self.duskSensor[0][0]))
+                if self.duskValuesText[duskValue-1] == 'day':
                     if self.device.getTextState() != "open" and self.device.getExecution() != Device.Execution.OPENING:    
-                        self.autoExtOpen()
-                if duskValuesText[duskValue-1] == 'night':
+                        self.autoBasicOpen()
+                if self.duskValuesText[duskValue-1] == 'night':
                     if self.device.getTextState() != "close" and self.device.getExecution() != Device.Execution.CLOSING:    
-                        self.autoExtClose()
+                        self.autoBasicClose()
 
             self.syncStates()
             time.sleep(0.1)

@@ -1,0 +1,20 @@
+{
+    "timetable" : [
+        {
+            "time" : "07:00",
+            "action" : "open"
+        },
+        {
+            "time" : "10:00",
+            "action" : "close"
+        },
+        {
+            "time" : "15:10",
+            "action" : "open"
+        },
+        {
+            "time" : "19:30",
+            "action" : "close"
+        }
+    ]
+}
