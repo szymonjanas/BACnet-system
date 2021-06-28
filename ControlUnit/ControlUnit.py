@@ -8,14 +8,14 @@ import requests
 from requests.models import Response
 import InternalClock
 
-DuskForm, _ = uic.loadUiType("ui/ControlUnitUi.ui")
+ControlUnitForm, _ = uic.loadUiType("ui/ControlUnitUi.ui")
 
 class Mode:
     MANUAL = 1
     AUTO_BASIC = 2
     AUTO_EXTENDED = 3
 
-class ControlUnitWindow(QDialog, DuskForm, threading.Thread):
+class ControlUnitWindow(QDialog, ControlUnitForm, threading.Thread):
     def __init__(self, ip):
         super(ControlUnitWindow, self).__init__()
         threading.Thread.__init__(self)
@@ -90,7 +90,6 @@ class ControlUnitWindow(QDialog, DuskForm, threading.Thread):
             state = 3
         for rs in self.rollerShutters:
             req = '{} multiStateValue 4 presentValue {} - 8'.format(rs[0], int(state))
-            print(req)
             self.bacnet.write(req, 842)
 
     def closeRollershutters(self):
@@ -115,12 +114,9 @@ class ControlUnitWindow(QDialog, DuskForm, threading.Thread):
         if self.timetable:
             for act in self.timetable:
                 if self.internalClock.isAfter(act["time"]):
-                    print("after", act["time"])
                     if self.lastExecute != "open" and act["action"] == "open":
-                        print("open", act["time"])
                         self.openRollershutters()
                     if self.lastExecute != "close" and act["action"] == "close":
-                        print("close", act["time"])
                         self.closeRollershutters()
 
     def isDuskSensorAvaliable(self):
